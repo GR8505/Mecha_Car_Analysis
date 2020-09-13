@@ -1,0 +1,137 @@
+# MPG Regression
+#-------------------------------------------------------------------------------------------------
+# 1.Which variables/coefficients provided a non-random amount of variance to the mpg values in the
+# dataset?
+
+# Reading MechaCar csv file
+library(tidyverse)
+library(corrplot)
+MechaCar_data <- read.csv("MechaCar_mpg.csv", check.names=F, stringsAsFactors=F)
+
+# Renaming of variables for simplicity
+MechaCar_data <- MechaCar_data %>% rename(v_length="vehicle length", v_weight="vehicle weight", s_angle="spoiler angle", g_clearance="ground clearance")
+
+#-------------------------------------------------------------------------------------------------
+# Developing Correlation Matrix for variables
+data_cor = cor(MechaCar_data)
+data_cor
+corrplot(data_cor)
+
+
+#-------------------------------------------------------------------------------------------------
+# From the correlation plot I can see that vehicle length and mpg have a moderate positive
+# correlation.  In addition, ground clearance and mpg have a weak positive correlation. AWD
+# and spoiler angle each share a weak negative correlation with mpg, while vehicle weight has
+# a very weak positive correlation with mpg.
+
+# From this analysis, vehicle length and ground clearance could be the two most significant 
+# independent variables that affect the dependent variable (mpg).
+
+# Nevertheless, I will perform backward selection with all variables before choosing the most 
+# parsimonious model.
+
+
+lm(mpg ~ v_length + g_clearance + AWD + v_weight + s_angle, MechaCar_data)
+summary(lm(mpg ~ v_length + g_clearance + AWD + v_weight + s_angle, MechaCar_data))
+AIC(lm(mpg ~ v_length + g_clearance + AWD + v_weight + s_angle, MechaCar_data))
+
+#-------------------------------------------------------------------------------------------------
+# From this model, as initially anticipated, vehicle length and ground clearance are the two
+# most significant independent variables in this model. The p-values for AWD, spoiler angle
+# and vehicle weight are all > 0.05.  However, v_weight is just above 0.05.  I will remove
+# spoiler angle (as it has the highest p-value) to see whether the p-values of both vehicle
+# weight and AWD drop.  I highly doubt that AWD will drop significantly but various combinations
+# of variables work well together.
+# If AIC drops, then this is a good sign.
+#-------------------------------------------------------------------------------------------------
+
+lm(mpg ~ v_length + g_clearance + AWD + v_weight, MechaCar_data)
+summary(lm(mpg ~ v_length + g_clearance + AWD + v_weight, MechaCar_data))
+AIC(lm(mpg ~ v_length + g_clearance + AWD + v_weight, MechaCar_data))
+
+#--------------------------------------------------------------------------------------------------
+# Clearly both AWD and vehicle weight are not significant to this model as both their p-values 
+# increased. AIC dropped from 366.6861 to 365.8857 with the removal of the independent variable,
+# spoiler angle.  I will now proceed to remove both AWD and vehicle weight variables.
+#--------------------------------------------------------------------------------------------------
+
+lm(mpg ~ v_length + g_clearance, MechaCar_data)
+summary(lm(mpg ~ v_length + g_clearance, MechaCar_data))
+AIC(lm(mpg ~ v_length + g_clearance , MechaCar_data))
+
+#--------------------------------------------------------------------------------------------------
+# Both independent variables, vehicle length and ground clearance are signifcant. However, the AIC
+# increased and the r-squared declined.  Our r-squared is not that big of an issue.  Besides,it just 
+# contracted by 3.2 percent(from 0.682 to 0.6601).  However, the most parsimonious model will have
+# the lowest AIC.  In our previous lm model mpg ~ v_length + g_clearance + AWD + v_weight, the AIC
+# was 365.8857 but now it is 367.3899. 
+# I will proceed to add vehicle weight to see how this affects the both the r-squared and AIC
+#--------------------------------------------------------------------------------------------------
+
+lm(mpg ~ v_length + g_clearance + v_weight, MechaCar_data)
+summary(lm(mpg ~ v_length + g_clearance + v_weight, MechaCar_data))
+AIC(lm(mpg ~ v_length + g_clearance + v_weight, MechaCar_data))
+
+#--------------------------------------------------------------------------------------------------
+# AIC improved but is still higher than the AIC value of 365.8857 for lm model mpg ~ v_length + 
+# g_clearance + AWD + v_weight.  Therefore, this is our most parsimonious model. 
+# mpg ~ v_length + g_clearance + AWD + v_weight
+#--------------------------------------------------------------------------------------------------
+
+mpg_reg <- lm(mpg ~ v_length + g_clearance + AWD + v_weight, MechaCar_data)
+summary(mpg_reg)
+AIC(mpg_reg)
+
+#--------------------------------------------------------------------------------------------------
+# 2. Is the slope of the linear model considered to be zero? Why or why not?
+
+# Null Hypothesis: The slope of the linear model is zero
+# Aleternative Hypothesis: The slope of the linear model is not zero
+# The p-value for our model is 1.586e-11, which is significantly lower than 0.05.  Therefore, this 
+# serves as enough evidence to reject our null hypothesis, soI will conclude that the slope of the 
+# linear model is not zero.
+#--------------------------------------------------------------------------------------------------
+# 3. Does this linear model predict mpg of MechaCar prototypes effectively? Why or why not?
+
+# Based on the r-squared value, roughly 71 percent of the mpg values can be predicted correctly
+# using the linear model.  Therefore, this is a robust model.  However, we must take note that the
+# p-value of the y-intercept is < 0.05, which indicates that there could be other variables that 
+# have not been taken into account that explains our model (or can be used to predict mpg).
+#--------------------------------------------------------------------------------------------------
+
+# Suspension Coil Summary
+
+# Reading Suspension_Coil csv file
+Suspension_data <- read.csv("Suspension_Coil.csv", check.names=F, stringsAsFactors=F)
+
+
+# Creating Summary Table (Segmented by Lots)
+summary_table <- Suspension_data %>% group_by(Manufacturing_Lot) %>% summarize(Mean_PSI=mean(PSI), Median_PSI=median(PSI), Var_PSI=var(PSI), SD_PSI=sd(PSI))
+
+# Creating Summary Table (Aggregated Data)
+summary_table2 <- Suspension_data %>% summarize(Mean_PSI=mean(PSI), Median_PSI=median(PSI), Var_PSI=var(PSI), SD_PSI=sd(PSI))
+
+
+#---------------------------------------------------------------------------------------------------
+
+# Suspension Coil T-Test
+
+# Testing to see if distribution is normal
+ggplot(Suspension_data,aes(x=PSI)) + geom_density()
+shapiro.test(Suspension_data$PSI)
+
+# Based on these results, the p-value of the shapiro test is less than 0.05. Therefore, the data is
+# doesn't follow a normal distribution.
+
+# Proceeded to create sample data
+sample_Suspension <- Suspension_data %>% sample_n(75)
+plt2 <- ggplot(sample_Suspension, aes(x=log10(PSI)))
+plt2 + geom_density()
+
+# Conducted one-sample T-Test
+t.test(log10(sample_Suspension$PSI), mu=mean(log10(Suspension_data$PSI)))
+
+-----------------------------------------------------------------------------------------------------
+
+
+
